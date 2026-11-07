@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : Get_Data.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.2
+* Date               : 2026/03/24
 * Description        :
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -15,160 +15,6 @@
 
 extern volatile uint8_t g_data_ready;
 
-#if USE_ES8388
-#include "es8388.h"
-extern __attribute__((aligned(4))) uint16_t V_Data[SampleDataLen*2];
-void I2S2_Init(void)
-{
-    GPIO_InitTypeDef GPIO_InitStructure;
-    I2S_InitTypeDef  I2S_InitStructure;
-
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2, ENABLE);
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC, ENABLE);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin =GPIO_Pin_15;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOC, &GPIO_InitStructure);
-
-    I2S_InitStructure.I2S_Mode = I2S_Mode_MasterRx;
-    I2S_InitStructure.I2S_Standard = I2S_Standard_Phillips;
-    I2S_InitStructure.I2S_DataFormat = I2S_DataFormat_16b;
-
-    I2S_InitStructure.I2S_MCLKOutput = I2S_MCLKOutput_Enable;
-    I2S_InitStructure.I2S_AudioFreq = I2S_AudioFreq_8k;
-    I2S_InitStructure.I2S_CPOL = I2S_CPOL_High;
-    I2S_Init(SPI2, &I2S_InitStructure);
-
-    SPI_I2S_DMACmd(SPI2,SPI_I2S_DMAReq_Rx, ENABLE);
-    I2S_Cmd(SPI2,DISABLE);
-}
-
-//I2S DMA config
-void DMA_Rx_Init( DMA_Channel_TypeDef* DMA_CHx, u32 ppadr, u32 memadr, u16 bufsize )
-{
-    DMA_InitTypeDef DMA_InitStructure;
-
-    RCC_AHBPeriphClockCmd( RCC_AHBPeriph_DMA1, ENABLE );
-    DMA_DeInit(DMA_CHx);
-
-    DMA_InitStructure.DMA_PeripheralBaseAddr = ppadr;
-    DMA_InitStructure.DMA_MemoryBaseAddr = memadr;
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-    DMA_InitStructure.DMA_BufferSize = bufsize;
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-    DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
-    DMA_Init( DMA_CHx, &DMA_InitStructure );
-    DMA_ITConfig(DMA_CHx,DMA_IT_TC,ENABLE);
-}
-
-
-//用于拆分数据
-void DMA_Data_Tran(DMA_Channel_TypeDef* DMA_CHx, u32 ppadr, u32 memadr, u16 bufsize)
-{
-    DMA_InitTypeDef DMA_InitStructure;
-
-    RCC_AHBPeriphClockCmd( RCC_AHBPeriph_DMA1, ENABLE );
-    DMA_DeInit(DMA_CHx);
-
-    DMA_InitStructure.DMA_PeripheralBaseAddr = ppadr;
-    DMA_InitStructure.DMA_MemoryBaseAddr = memadr;
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-    DMA_InitStructure.DMA_BufferSize = bufsize;
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Enable;
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-    DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
-    DMA_InitStructure.DMA_M2M = DMA_M2M_Enable;
-    DMA_Init( DMA_CHx, &DMA_InitStructure );
-    DMA_ITConfig(DMA_CHx,DMA_IT_TC,ENABLE);
-    DMA_Cmd( DMA_CHx, ENABLE );
-}
-
-
-void voice_init(void)
-{
-    GPIO_WriteBit(GPIOA,GPIO_Pin_8,1);              //PA8 设置录音模式
-    ES8388_Init();
-    ES8388_Set_Volume(22);
-    ES8388_I2S_Cfg(0,3);                            //飞利浦格式，16bit
-    ES8388_ADDA_Cfg(1,0);                           //开启AD 关闭DA
-    I2S2_Init();
-    NVIC_SetPriority(DMA1_Channel4_IRQn,0xE0);
-    NVIC_EnableIRQ(DMA1_Channel4_IRQn);
-
-    NVIC_SetPriority(DMA1_Channel5_IRQn,0xE0);
-    NVIC_EnableIRQ(DMA1_Channel5_IRQn);
-    printf("init es8388\r\n");
-}
-
-/*********************************************************************
- * @fn      DMA1_Channel4_IRQHandler
- *
- * @brief   This function DMA1 Channel4 exception.
- *
- * @return  none
- */
-void DMA1_Channel4_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
-void DMA1_Channel4_IRQHandler(void)
-{
-   if(DMA_GetITStatus(DMA1_IT_TC4))
-   {
-       DMA_ClearITPendingBit(DMA1_IT_TC4|DMA1_IT_GL4|DMA1_IT_HT4);
-       I2S_Cmd(SPI2,DISABLE);
-//       printf("tc4\r\n");
-//       for(int i=0;i<SampleDataLen*2;i++)
-//       {
-//           printf("%04x  ",V_Data[i]);
-//           if((i%16==0) && (i!=0))
-//           {
-//               printf("\r\n");
-//           }
-//       }
-       DMA_Data_Tran(DMA1_Channel5, (u32)V_Data, (u32)V_Data,SampleDataLen);//利用DMA每个字只取半字
-   }
-}
-
-/*********************************************************************
- * @fn      DMA1_Channel5_IRQHandler
- *
- * @brief   This function DMA1 Channel5 exception.
- *
- * @return  none
- */
-void DMA1_Channel5_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
-void DMA1_Channel5_IRQHandler(void)
-{
-   if(DMA_GetITStatus(DMA1_IT_TC5))
-   {
-//       printf("TC5\r\n");
-       for(uint16_t i=0;i<SampleDataLen;i++)//原始数据为有符号16位，传入参数需要无符号16位
-       {
-           V_Data[i]=(uint16_t)((int16_t)V_Data[i]+32768);
-       }
-       g_data_ready=1;
-       DMA_ClearITPendingBit(DMA1_IT_TC5|DMA1_IT_GL5|DMA1_IT_HT5);
-   }
-}
-
-#else
 extern __attribute__((aligned(4))) uint16_t V_Data[SampleDataLen];
 void voice_init(void)
 {
@@ -231,7 +77,7 @@ void voice_init(void)
     ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_41Cycles5);
     /* Enable ADC1 DMA */
     ADC_DMACmd(ADC1, ENABLE);
-    /* ADC1 外部触发使能 */
+    /* ADC1  */
     ADC_ExternalTrigConvCmd(ADC1,ENABLE);
     /* Enable ADC1 */
     ADC_Cmd(ADC1, ENABLE);
@@ -259,7 +105,7 @@ void DMA1_Channel1_IRQHandler(void)
        DMA_ClearITPendingBit(DMA1_IT_TC1|DMA1_IT_GL1|DMA1_IT_HT1);
    }
 }
-#endif
+
 
 
 

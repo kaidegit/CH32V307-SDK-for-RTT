@@ -44,7 +44,7 @@ volatile uint8_t  USBHS_DevSpeed;
 volatile uint8_t  USBHS_DevSleepStatus;
 volatile uint8_t  USBHS_DevEnumStatus;
 
-/* trance rx len */
+/* transfer rx len */
 volatile uint16_t USBHS_Endp3_RxLen = 0;
 
 /* Endpoint Buffer */
@@ -75,22 +75,27 @@ void USB_TestMode_Deal( void )
         /* Test_J */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_J;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0200 )
     {
         /* Test_K */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_K;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0300 )
     {
         /* Test_SE0_NAK */
         USBHSD->SUSPEND &= ~TEST_MASK;
-        USBHSD->SUSPEND |= TEST_SE0;
+        USBHSD->SUSPEND |= TEST_PACKET;
+        USBHSD->DEV_AD = 0x00;
+        USBHSD->UEP0_RX_CTRL = USBHS_UEP_R_RES_NAK;
+        USBHSD->UEP0_TX_CTRL = USBHS_UEP_T_RES_NAK;
     }
     else if( USBHS_SetupReqIndex == 0x0400 )
     {
-        /* Test_Packet */
+        /* Test_Packet */ 
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_PACKET;
 
@@ -212,9 +217,10 @@ void USBHS_Device_Init( FunctionalState sta )
  */
 uint8_t USBHS_EP1_UpLoad( uint16_t len, uint32_t dma_adr )
 {
-    if( (USBHS_Endp_Busy[ DEF_UEP1 ] & DEF_UEP_BUSY) == RESET )
+    // if( (USBHS_Endp_Busy[ DEF_UEP1 ] & DEF_UEP_BUSY) == RESET )
+    if( (USBHSD->UEP1_TX_CTRL & USBHS_UEP_T_RES_MASK) == USBHS_UEP_T_RES_NAK )
     {
-        USBHS_Endp_Busy[ DEF_UEP1 ] = DEF_UEP_BUSY;
+        // USBHS_Endp_Busy[ DEF_UEP1 ] = DEF_UEP_BUSY;
         USBHSD->UEP1_TX_LEN = len;
         USBHSD->UEP1_TX_DMA = dma_adr;
         USBHSD->UEP1_TX_CTRL = ( USBHSD->UEP1_TX_CTRL & ~USBHS_UEP_T_RES_MASK ) | USBHS_UEP_T_RES_ACK;
@@ -235,7 +241,8 @@ uint8_t USBHS_EP1_UpLoad( uint16_t len, uint32_t dma_adr )
  */
 uint8_t USBHS_EP2_UpLoad( uint16_t len, uint32_t dma_adr )
 {
-    if( (USBHS_Endp_Busy[ DEF_UEP2 ] & DEF_UEP_BUSY) == RESET )
+    // if( (USBHS_Endp_Busy[ DEF_UEP2 ] & DEF_UEP_BUSY) == RESET )
+    if( (USBHSD->UEP2_TX_CTRL & USBHS_UEP_T_RES_MASK) == USBHS_UEP_T_RES_NAK )
     {
         USBHS_Endp_Busy[ DEF_UEP2 ] = DEF_UEP_BUSY;
         USBHSD->UEP2_TX_LEN = len;
@@ -441,7 +448,7 @@ void USBHS_IRQHandler( void )
                 case DEF_ECM_SET_ETHPACKETFILTER:
                     /* 0x43 */
                     errflag = 0x00;
-                    ECM_Change_MAC_Filter( (uint8_t)(USBHS_SetupReqValue&0x1F) );
+                    MAC_Filter_Set( (uint8_t)(USBHS_SetupReqValue&0x1F) );
                     break;
 
                 default:
@@ -726,6 +733,10 @@ void USBHS_IRQHandler( void )
                                     errflag = 0xFF;
                                     break;
                             }
+                        }
+                        else
+                        {
+                            errflag = 0xFF;
                         }
                     }
                     break;

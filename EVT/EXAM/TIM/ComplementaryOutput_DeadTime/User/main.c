@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : main.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.1
+* Date               : 2025/09/22
 * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -100,11 +100,11 @@ int main(void)
 	printf( "ChipID:%08x\r\n", DBGMCU_GetCHIPID() );
 	
 	/* Complementary output with dead-time insertion */
-	TIM1_Dead_Time_Init( 100, 48-1, 50 );
+	TIM1_Dead_Time_Init( 100-1, 48-1, 50 );
 	/* Dead-time waveforms with delay greater than the negative pulse */
-//	TIM1_Dead_Time_Init( 100, 48-1, 10 );
+//	TIM1_Dead_Time_Init( 100-1, 48-1, 10 );
 	/* Dead-time waveforms with delay greater than the positive pulse. */
-//	TIM1_Dead_Time_Init( 100, 48-1, 90 );
+//	TIM1_Dead_Time_Init( 100-1, 48-1, 90 );
 
 	while(1);
 }

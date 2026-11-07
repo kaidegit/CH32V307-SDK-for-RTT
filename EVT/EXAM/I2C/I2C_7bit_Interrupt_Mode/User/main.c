@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
  * File Name          : main.c
  * Author             : WCH
- * Version            : V1.0.0
- * Date               : 2024/03/05
+ * Version            : V1.0.2
+ * Date               : 2026/10/16
  * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -82,16 +82,7 @@ void IIC_Init(u32 bound, u16 address)
     RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOB | RCC_APB2Periph_AFIO, ENABLE );
     GPIO_PinRemapConfig(GPIO_Remap_I2C1, ENABLE);
     RCC_APB1PeriphClockCmd( RCC_APB1Periph_I2C1, ENABLE );
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init( GPIOB, &GPIO_InitStructure );
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init( GPIOB, &GPIO_InitStructure );
+    GPIO_SetBits(GPIOB,GPIO_Pin_8|GPIO_Pin_9);
 
     I2C_InitTSturcture.I2C_ClockSpeed = bound;
     I2C_InitTSturcture.I2C_Mode = I2C_Mode_I2C;
@@ -123,6 +114,16 @@ void IIC_Init(u32 bound, u16 address)
     I2C_ITConfig( I2C1, I2C_IT_EVT, ENABLE );
     I2C_ITConfig( I2C1, I2C_IT_ERR, ENABLE );
 
+
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init( GPIOB, &GPIO_InitStructure );
+
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init( GPIOB, &GPIO_InitStructure );
 }
 
 /*********************************************************************
@@ -136,7 +137,7 @@ int main(void)
 {
     u8 i = 0,j = 0;
     Delay_Init();
-    USART_Printf_Init( 460800 );
+    USART_Printf_Init( 115200 );
     printf( "SystemClk:%d\r\n", SystemCoreClock );
     printf(__TIME__ "\n");
 
@@ -291,7 +292,7 @@ void I2C1_EV_IRQHandler(void )
   }
    else if( I2C_GetITStatus( I2C1, I2C_IT_TXE ) != RESET )
   {
-       I2C_SendData(I2C1,  RxData[slave_send_len]);
+      I2C_SendData(I2C1,  RxData[slave_send_len]);
       slave_send_len++;
 
   }

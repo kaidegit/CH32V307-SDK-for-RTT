@@ -1,5 +1,5 @@
 /********************************** (C) COPYRIGHT *******************************
- * File Name          : ch32v30x_usbfs_device.c
+ * File Name          : ch32v30x_usbhs_device.c
  * Author             : WCH
  * Version            : V1.0.0
  * Date               : 2023/11/20
@@ -87,22 +87,27 @@ void USB_TestMode_Deal( void )
         /* Test_J */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_J;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0200 )
     {
         /* Test_K */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_K;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0300 )
     {
         /* Test_SE0_NAK */
         USBHSD->SUSPEND &= ~TEST_MASK;
-        USBHSD->SUSPEND |= TEST_SE0;
+        USBHSD->SUSPEND |= TEST_PACKET;
+        USBHSD->DEV_AD = 0x00;
+        USBHSD->UEP0_RX_CTRL = USBHS_UEP_R_RES_NAK;
+        USBHSD->UEP0_TX_CTRL = USBHS_UEP_T_RES_NAK;
     }
     else if( USBHS_SetupReqIndex == 0x0400 )
     {
-        /* Test_Packet */
+        /* Test_Packet */ 
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_PACKET;
 
@@ -355,6 +360,10 @@ void USBHS_IRQHandler( void )
                                         break;
                                 }
                             }
+                            else
+                            {
+                                errflag = 0xFF;
+                            }
 
                         }
                         else
@@ -419,6 +428,11 @@ void USBHS_IRQHandler( void )
                                     switch( USBHS_SetupReqCode )
                                     {
                                         case HID_SET_REPORT:
+                                            if( Hid_Report_Ptr + len > sizeof( HID_Report_Buffer ) )
+                                            {
+                                                len = sizeof( HID_Report_Buffer ) - Hid_Report_Ptr;
+                                                USBHS_SetupReqLen = len;
+                                            }
                                             memcpy(&HID_Report_Buffer[Hid_Report_Ptr],USBHS_EP0_Buf,len);
 											USBHS_SetupReqLen -= len;
 											Hid_Report_Ptr += len;
@@ -433,6 +447,10 @@ void USBHS_IRQHandler( void )
                                         default:
                                             break;
                                     }
+                                }
+                                else
+                                {
+                                    errflag = 0xFF;
                                 }
                             }
 							else
@@ -562,6 +580,10 @@ void USBHS_IRQHandler( void )
                         errflag = 0xFF;
                         break;
                 }
+            }
+            else
+            {
+                errflag = 0xFF;
             }
         }
         else
@@ -835,6 +857,10 @@ void USBHS_IRQHandler( void )
                                     errflag = 0xFF;
                                     break;
                             }
+                        }
+                        else
+                        {
+                            errflag = 0xFF;
                         }
                     }
                     else

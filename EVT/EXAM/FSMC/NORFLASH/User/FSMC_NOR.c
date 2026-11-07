@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
  * File Name          : FSMC_NOR.c
  * Author             : WCH
- * Version            : V1.0.0
- * Date               : 2024/03/13
+ * Version            : V1.0.2
+ * Date               : 2026/10/14
  * Description        : This file contains the headers of the FSMC_NOR.
 *********************************************************************************
 * Copyright (c) 2024 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -95,11 +95,10 @@ void FSMC_NorFlash_Init(void)
     FSMC_NORSRAMInitStructure.FSMC_BurstAccessMode =FSMC_BurstAccessMode_Disable;
     FSMC_NORSRAMInitStructure.FSMC_WaitSignalPolarity = FSMC_WaitSignalPolarity_Low;
     FSMC_NORSRAMInitStructure.FSMC_AsynchronousWait=FSMC_AsynchronousWait_Disable;
-    FSMC_NORSRAMInitStructure.FSMC_WrapMode = FSMC_WrapMode_Disable;
     FSMC_NORSRAMInitStructure.FSMC_WaitSignalActive = FSMC_WaitSignalActive_BeforeWaitState;
     FSMC_NORSRAMInitStructure.FSMC_WriteOperation = FSMC_WriteOperation_Enable;
     FSMC_NORSRAMInitStructure.FSMC_WaitSignal = FSMC_WaitSignal_Disable;
-    FSMC_NORSRAMInitStructure.FSMC_ExtendedMode = FSMC_ExtendedMode_Disable;
+    FSMC_NORSRAMInitStructure.FSMC_ExtendedMode = FSMC_ExtendedMode_Enable;
     FSMC_NORSRAMInitStructure.FSMC_WriteBurst = FSMC_WriteBurst_Disable;
     FSMC_NORSRAMInitStructure.FSMC_ReadWriteTimingStruct = &readWriteTiming;
     FSMC_NORSRAMInitStructure.FSMC_WriteTimingStruct = &readWriteTiming;
@@ -297,12 +296,12 @@ NOR_Status NOR_EraseChip(void)
  *          or NOR_TIMEOUT
  */
 
-void Fill_Buffer(uint16_t *pBuffer, uint16_t BufferLenght, uint32_t Offset)
+void Fill_Buffer(uint16_t *pBuffer, uint16_t BufferLength, uint32_t Offset)
 {
     uint16_t IndexTmp = 0;
 
     /* Put in global buffer same values */
-    for (IndexTmp = 0; IndexTmp < BufferLenght; IndexTmp++ )
+    for (IndexTmp = 0; IndexTmp < BufferLength; IndexTmp++ )
     {
         pBuffer[IndexTmp] =IndexTmp + Offset;
     }

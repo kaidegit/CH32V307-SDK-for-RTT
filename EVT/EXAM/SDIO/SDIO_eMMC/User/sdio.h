@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : sdio.h
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2024/01/02
+* Version            : V1.0.1
+* Date               : 2025/01/04
 * Description        : This file contains the headers of the SDIO.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -44,7 +44,7 @@
 #define SDIO_FLAG_CEATAEND                  ((uint32_t)0x00800000)
 
 /* SDIO clock */
-#define SDIO_INIT_CLK_DIV        0xB2
+#define SDIO_INIT_CLK_DIV        0xFF
 #define SDIO_TRANSFER_CLK_DIV    0x00
 
 /* SDIO work mode */

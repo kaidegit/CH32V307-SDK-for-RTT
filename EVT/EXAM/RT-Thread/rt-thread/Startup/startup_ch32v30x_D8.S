@@ -1,9 +1,9 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : startup_ch32v30x_D8.s
 * Author             : WCH
-* Version            : V1.0.1
-* Date               : 2024/03/06
-* Description        : CH32V303x vector table for eclipse toolchain.
+* Version            : V1.0.3
+* Date               : 2026/08/19
+* Description        : CH32V303x Startup File
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
 * Attention: This software (modified or not) and binary are used for 
@@ -79,7 +79,7 @@ _vector_base:
     .word   USART3_IRQHandler          /* USART3 */
     .word   EXTI15_10_IRQHandler       /* EXTI Line 15..10 */
     .word   RTCAlarm_IRQHandler        /* RTC Alarm through EXTI Line */
-    .word   0
+    .word   USBWakeUp_IRQHandler       /* USB Wakeup from suspend */
     .word   TIM8_BRK_IRQHandler        /* TIM8 Break */
     .word   TIM8_UP_IRQHandler         /* TIM8 Update */
     .word   TIM8_TRG_COM_IRQHandler    /* TIM8 Trigger and Commutation */
@@ -177,6 +177,7 @@ _vector_base:
     .weak   USART3_IRQHandler          /* USART3 */
     .weak   EXTI15_10_IRQHandler       /* EXTI Line 15..10 */
     .weak   RTCAlarm_IRQHandler        /* RTC Alarm through EXTI Line */
+    .weak   USBWakeUp_IRQHandler       /* USB Wakeup from suspend */
     .weak   TIM8_BRK_IRQHandler        /* TIM8 Break */
     .weak   TIM8_UP_IRQHandler         /* TIM8 Update */
     .weak   TIM8_TRG_COM_IRQHandler    /* TIM8 Trigger and Commutation */
@@ -262,6 +263,7 @@ USART2_IRQHandler:
 USART3_IRQHandler:
 EXTI15_10_IRQHandler:
 RTCAlarm_IRQHandler:
+USBWakeUp_IRQHandler:
 TIM8_BRK_IRQHandler:
 TIM8_UP_IRQHandler:
 TIM8_TRG_COM_IRQHandler:
@@ -309,9 +311,9 @@ handle_reset:
     csrw mepc, t0
 	la gp, __global_pointer$
 .option	pop
-1:
+
 	la sp, _eusrstack
-2:
+
 /* Load data section from flash to RAM */
 	la a0, _data_lma
 	la a1, _data_vma

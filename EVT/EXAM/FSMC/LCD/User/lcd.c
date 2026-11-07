@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : lcd.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2024/03/05
+* Version            : V1.0.2
+* Date               : 2026/10/14
 * Description        : This file contains the headers of the TFTLCD.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -166,6 +166,7 @@ void LCD_Scan_Dir(u8 dir)
             case 5:dir=0;break;
             case 6:dir=3;break;
             case 7:dir=2;break;
+			default: break;
         }
 	}
 
@@ -197,6 +198,7 @@ void LCD_Scan_Dir(u8 dir)
 			case D2U_R2L:
 				regval|=(1<<7)|(1<<6)|(1<<5); 
 				break;	 
+			default: break;
 		}
         dirreg=0X36;
         regval|=0X08;
@@ -338,7 +340,6 @@ void LCD_Init(void)
     FSMC_NORSRAMInitStructure.FSMC_BurstAccessMode =FSMC_BurstAccessMode_Disable;
     FSMC_NORSRAMInitStructure.FSMC_WaitSignalPolarity = FSMC_WaitSignalPolarity_Low;
     FSMC_NORSRAMInitStructure.FSMC_AsynchronousWait=FSMC_AsynchronousWait_Disable;
-    FSMC_NORSRAMInitStructure.FSMC_WrapMode = FSMC_WrapMode_Disable;
     FSMC_NORSRAMInitStructure.FSMC_WaitSignalActive = FSMC_WaitSignalActive_BeforeWaitState;
     FSMC_NORSRAMInitStructure.FSMC_WriteOperation = FSMC_WriteOperation_Enable;
     FSMC_NORSRAMInitStructure.FSMC_WaitSignal = FSMC_WaitSignal_Disable;
@@ -502,7 +503,7 @@ void LCD_Clear(u16 color)
  */
 void LCD_ShowString(u16 x,u16 y,u16 width,u16 height,u8 size,u8 *p)
 {
-    u8 x0=x;
+    u16 x0=x;
     width+=x;
     height+=y;
     while((*p<='~')&&(*p>=' '))

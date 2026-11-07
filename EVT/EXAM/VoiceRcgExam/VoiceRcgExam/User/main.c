@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : main.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.1
+* Date               : 2026/03/24
 * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -27,12 +27,9 @@
 /* Global Variable */
 const char  *key_words[]={"up", "down", "left", "right"};
 
-#if USE_ES8388
-//ES8388 have two channels,we only need one of them
-__attribute__((aligned(4))) uint16_t V_Data[SampleDataLen*2];
-#else
+
 __attribute__((aligned(4))) uint16_t V_Data[SampleDataLen];
-#endif
+
 
 vr_dtg_para  dtg_para;
 vr_act_seg   active_segment;
@@ -93,18 +90,9 @@ int main(void)
  */
 void voice_record(void)
 {
-#if USE_ES8388
-	I2S_Cmd(SPI2,ENABLE);
-	Delay_Ms(SampleDelay); //ES8388 data is empty
-	DMA_Rx_Init( DMA1_Channel4, (u32)&SPI2->DATAR, (u32)V_Data, (SampleDataLen*2) );
-	DMA_Cmd( DMA1_Channel4, ENABLE );
-	Delay_Ms(SampleNoiseTime); //sample noise
-	printf("speaking...\r\n");
-#else
 	TIM_Cmd(TIM1, ENABLE);
 	Delay_Ms(SampleNoiseTime);
 	printf("speaking...\r\n");
-#endif
 }
 
 /*********************************************************************

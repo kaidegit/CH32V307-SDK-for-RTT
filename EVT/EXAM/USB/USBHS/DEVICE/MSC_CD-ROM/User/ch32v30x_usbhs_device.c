@@ -75,22 +75,27 @@ void USB_TestMode_Deal( void )
         /* Test_J */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_J;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0200 )
     {
         /* Test_K */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_K;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0300 )
     {
         /* Test_SE0_NAK */
         USBHSD->SUSPEND &= ~TEST_MASK;
-        USBHSD->SUSPEND |= TEST_SE0;
+        USBHSD->SUSPEND |= TEST_PACKET;
+        USBHSD->DEV_AD = 0x00;
+        USBHSD->UEP0_RX_CTRL = USBHS_UEP_R_RES_NAK;
+        USBHSD->UEP0_TX_CTRL = USBHS_UEP_T_RES_NAK;
     }
     else if( USBHS_SetupReqIndex == 0x0400 )
     {
-        /* Test_Packet */
+        /* Test_Packet */ 
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_PACKET;
 
@@ -362,7 +367,7 @@ void USBHS_IRQHandler( void )
                         }
                         break;
 
-                    /* end-point 1 data in interrupt */
+                    /* end-point 2 data in interrupt */
                     case USBHS_UIS_TOKEN_IN | DEF_UEP2:
                         USBHSD->UEP2_TX_CTRL = (USBHSD->UEP2_TX_CTRL & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_NAK;
                         USBHSD->UEP2_TX_CTRL ^= USBHS_UEP_T_TOG_DATA1;
@@ -742,6 +747,10 @@ void USBHS_IRQHandler( void )
                                     errflag = 0xFF;
                                     break;
                             }
+                        }
+                        else
+                        {
+                            errflag = 0xFF;
                         }
                     }
                     break;

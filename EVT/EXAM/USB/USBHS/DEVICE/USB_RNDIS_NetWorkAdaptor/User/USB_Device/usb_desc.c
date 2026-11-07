@@ -22,8 +22,8 @@ const uint8_t  MyDevDescr[ ] =
     0x00,
     0x02,                           /* bcdUSB USB2.0 */
     0x02,                           /* Miscellaneous Device Class */
-    0x02,                           /* Common Class */
-    0x0D,                           /* Interface Association Descriptor */
+    0x0D,                           /* Common Class */
+    0x00,                           /* Interface Association Descriptor */
     DEF_USBD_UEP0_SIZE,             /* Max packet 64 */
     ( DEF_USB_VID & 0xFF ),
     ( DEF_USB_VID >> 8 ),           /* VID */

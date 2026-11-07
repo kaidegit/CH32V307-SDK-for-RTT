@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : main.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.2
+* Date               : 2026/10/16
 * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -45,8 +45,7 @@ void OPA4_Init(void)
 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE );
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4|GPIO_Pin_3;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
 
     OPA_InitStructure.OPA_NUM=OPA4;
@@ -260,8 +259,7 @@ int main(void)
         {
             DAC_SetChannel1Data(DAC_Align_12b_R, DAC_OUT[i]);
             ADC_val = Get_ADC_Average( ADC_Channel_0, 10 );
-            printf( "OPA_OUT:%04d\r\n", ADC_val);
-            printf( "OPA_OUT:%04d\r\n", Get_ConversionVal(ADC_val+Calibrattion_Val));
+            printf( "OPA_OUT:%04d\r\n", Get_ConversionVal(ADC_val));
             Delay_Ms(500);
         }
    }

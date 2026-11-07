@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : main.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.2
+* Date               : 2026/10/16
 * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -21,7 +21,6 @@
 #include "debug.h"
 
 /* Global define */
-#define Num    7
 
 /* Global Variable */
 
@@ -42,9 +41,7 @@ void Dac_Init(void)
 
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
-    GPIO_SetBits(GPIOA, GPIO_Pin_4);
 
     DAC_InitType.DAC_Trigger = DAC_Trigger_Software;
     DAC_InitType.DAC_WaveGeneration = DAC_WaveGeneration_Noise;

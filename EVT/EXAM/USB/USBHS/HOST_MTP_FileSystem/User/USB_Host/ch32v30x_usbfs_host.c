@@ -1,5 +1,5 @@
 /********************************** (C) COPYRIGHT *******************************
-* File Name          : ch32f20x_usbfs_host.c
+* File Name          : ch32v30x_usbfs_host.c
 * Author             : WCH
 * Version            : V1.0.0
 * Date               : 2022/09/01
@@ -655,7 +655,6 @@ uint8_t USBFSH_GetEndpData( uint8_t endp_num, uint8_t *pendp_tog, uint8_t *pbuf,
     {
         *plen = USBFSH->RX_LEN;
         memcpy( pbuf, USBFS_RX_Buf, *plen );
-
         *pendp_tog ^= USBFS_UH_R_TOG;
     }
     

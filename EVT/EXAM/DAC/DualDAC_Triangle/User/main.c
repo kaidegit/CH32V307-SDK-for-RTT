@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : main.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.2
+* Date               : 2026/10/16
 * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -41,9 +41,7 @@ void Dual_Dac_Init(void)
 	
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4|GPIO_Pin_5;
  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN; 		     
- 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
  	GPIO_Init(GPIOA, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOA,GPIO_Pin_4);
 	
 	DAC_InitType.DAC_Trigger=DAC_Trigger_T4_TRGO;
 	DAC_InitType.DAC_WaveGeneration=DAC_WaveGeneration_Triangle;
@@ -71,7 +69,6 @@ void Timer4_Init(void)
     TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure={0};
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
 
-    TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
     TIM_TimeBaseStructure.TIM_Period = 36-1;
     TIM_TimeBaseStructure.TIM_Prescaler =0;
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;

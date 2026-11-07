@@ -13,19 +13,19 @@
 #include "cdc_ecm.h"
 
 /* ECM/NCM Network Status to Load */
-__attribute__ ((aligned(4))) uint8_t ECM_NetWork_Speed_Change[ 16 ] = { 0xA1, 0x2A, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  /* ECM速度变化状态上传 */
+__attribute__ ((aligned(4))) uint8_t ECM_NetWork_Speed_Change[ 16 ] = { 0xA1, 0x2A, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };  /* ECMUpload the speed change status */
 __attribute__ ((aligned(4))) uint8_t ECM_NetWork_Connection[ 8 ]    = { 0xA1, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00 };
 
 /* Ring Buffer */
-__attribute__((__aligned__(4))) RING_BUFF_COMM U2E_Trance_Manage;/* usb to eth 缓冲区管理 */
-__attribute__((__aligned__(4))) uint32_t U2E_PackAdr[DEF_U2E_MAXBLOCKS];/* usb to eth 包地址记录 */
-__attribute__((__aligned__(4))) uint32_t U2E_PackLen[DEF_U2E_MAXBLOCKS];/* usb to eth 包长度记录 */
+__attribute__((__aligned__(4))) RING_BUFF_COMM U2E_Trance_Manage;/* usb to eth Buffer management */
+__attribute__((__aligned__(4))) uint32_t U2E_PackAdr[DEF_U2E_MAXBLOCKS];/* usb to eth Packet address record */
+__attribute__((__aligned__(4))) uint32_t U2E_PackLen[DEF_U2E_MAXBLOCKS];/* usb to eth Packet length record */
 
-__attribute__((__aligned__(4))) RING_BUFF_COMM E2U_Trance_Manage;/* eth to usb 缓冲区管理 */
-__attribute__((__aligned__(4))) uint32_t E2U_PackAdr[DEF_E2U_MAXBLOCKS];/* eth to usb 包地址记录 */
-__attribute__((__aligned__(4))) uint32_t E2U_PackLen[DEF_E2U_MAXBLOCKS];/* eth to usb 包长度记录 */
+__attribute__((__aligned__(4))) RING_BUFF_COMM E2U_Trance_Manage;/* eth to usb Buffer management */
+__attribute__((__aligned__(4))) uint32_t E2U_PackAdr[DEF_E2U_MAXBLOCKS];/* eth to usb Packet address record */
+__attribute__((__aligned__(4))) uint32_t E2U_PackLen[DEF_E2U_MAXBLOCKS];/* eth to usb Packet length record */
 
-__attribute__((__aligned__(4))) ETH_DMADESCTypeDef *DMARxDealTabs[ETH_RXBUFNB];/* MAC recv descriptor, 4-byte aligned， eth to usb 接收描述符包状态归属 */
+__attribute__((__aligned__(4))) ETH_DMADESCTypeDef *DMARxDealTabs[ETH_RXBUFNB];/* MAC recv descriptor, 4-byte aligned, eth to usb Ownership of the receive descriptor packet status */
 
 /* Phy Status */
 volatile uint8_t  ETH_LastStatus = 0;
@@ -37,6 +37,9 @@ volatile uint16_t LastPhyStatus = 0;
 volatile uint32_t U2E_PackCnounter;
 volatile uint32_t E2U_PackCnounter;
 uint8_t  PhyInit_Flag;
+
+/* macaddr */
+uint8_t MACAddr[ 6 ];
 
 /*********************************************************************
  * @fn      mStopIfError
@@ -55,13 +58,13 @@ void mStopIfError( uint8_t iError )
 }
 
 /*********************************************************************
- * @fn      ECM_Change_MAC_Filter
+ * @fn      MAC_Filter_Set
  *
- * @brief   Change MacFliter by USB Request
+ * @brief   Change MacFilter by USB Request
  *
  * @return  none
  */
-void ECM_Change_MAC_Filter( uint8_t pac_filter )
+void MAC_Filter_Set( uint8_t pac_filter )
 {
     if( pac_filter != ECM_Pack_Filter )
     {
@@ -128,7 +131,7 @@ void MACAddr_Change_To_SNDesc( uint8_t *pmacbuf )
     p = pmacbuf;
     for( i = 0; i < 6; i++ )
     {
-        /* 取高4位处理 */
+        /* Handle the upper 4 bits */
         temp8 = ( *p & 0xF0 ) >> 4;
         temp8 = temp8 & 0x0F;
         if( temp8 >= 0x0A )
@@ -141,7 +144,7 @@ void MACAddr_Change_To_SNDesc( uint8_t *pmacbuf )
         }
         ECM_StrDesc_Sn[ ( ( i * 2 ) + 1 ) * 2 ] = temp8;
 
-        /* 取低4位处理 */
+        /* Handle the lower 4 bits */
         temp8 = *p & 0x0F;
         if( temp8 >= 0x0A )
         {
@@ -195,9 +198,47 @@ void RB_Init( void )
 }
 
 /*********************************************************************
+ * @fn      ETH2USB_DataSend(based on hardware)
+ *
+ * @brief   Send ETH Data
+ *
+ * @return  none
+ */
+uint8_t ETH2USB_DataSend(uint16_t len, uint32_t *pBuff ) 
+{
+    /* Check if the descriptor is owned by the ETHERNET DMA (when set) or CPU (when reset) */
+    if((pDMATxSet->Status & ETH_DMATxDesc_OWN) != (u32)RESET)
+    {
+        /* Return ERROR: OWN bit set */
+        return ETH_ERROR;
+    }
+    /* Setting the Frame Length: bits[12:0] */
+    pDMATxSet->ControlBufferSize = (len & ETH_DMATxDesc_TBS1);
+    pDMATxSet->Buffer1Addr = (uint32_t)pBuff;
+
+    /* Setting the last segment and first segment bits (in this case a frame is transmitted in one descriptor) */
+    pDMATxSet->Status |= ETH_DMATxDesc_LS | ETH_DMATxDesc_FS;
+
+    /* Set Own bit of the Tx descriptor Status: gives the buffer back to ETHERNET DMA */
+    pDMATxSet->Status |= ETH_DMATxDesc_OWN;
+
+    /* Clear TBUS ETHERNET DMA flag */
+    ETH->DMASR = ETH_DMASR_TBUS;
+    /* Resume DMA transmission*/
+    ETH->DMATPDR = 0;
+
+    /* Update the ETHERNET DMA global Tx descriptor with next Tx descriptor */
+    /* Chained Mode */
+    /* Selects the next DMA Tx descriptor list for next buffer to send */
+    pDMATxSet = (ETH_DMADESCTypeDef*) (pDMATxSet->Buffer2NextDescAddr);
+    /* Return SUCCESS */
+    return ETH_SUCCESS;
+}
+
+/*********************************************************************
  * @fn      USB2ETH_Trance
  *
- * @brief   usb to eth trance
+ * @brief   usb to eth transfer
  *
  * @return  none
  */
@@ -219,7 +260,7 @@ void USB2ETH_Trance( void )
     {
         u2e_deal_ptr = U2E_Trance_Manage.DealPtr;
 
-        ret = ETH_TxPktChainMode( (uint16_t)U2E_PackLen[ u2e_deal_ptr ], (uint32_t *)(U2E_PackAdr[ u2e_deal_ptr ] + DEF_U2E_PACKHEADOFFSET) );
+        ret = ETH2USB_DataSend( (uint16_t)U2E_PackLen[ u2e_deal_ptr ], (uint32_t *)(U2E_PackAdr[ u2e_deal_ptr ] + DEF_U2E_PACKHEADOFFSET) );
         if( ret == ETH_SUCCESS )
         {
             __disable_irq( );
@@ -247,9 +288,63 @@ void USB2ETH_Trance( void )
 }
 
 /*********************************************************************
+ * @fn      ETH2USB_DataRecv(based on hardware)
+ *
+ * @brief   Receive Eth data  
+ *
+ * @return  none
+ */
+void ETH2USB_DataRecv( void )
+{
+    uint8_t e2u_load_ptr;
+    /* Check if the descriptor is owned by the ETHERNET DMA (when set) or CPU (when reset) */
+    if((pDMARxSet->Status & ETH_DMARxDesc_OWN) == (u32)RESET)
+    {
+        /* Update the ETHERNET DMA global Rx descriptor with next Rx descriptor */
+        /* Chained Mode */
+        /* Selects the next DMA Rx descriptor list for next buffer to read */
+        if(
+        ((pDMARxSet->Status & ETH_DMARxDesc_ES) == (u32)RESET) &&
+        ((pDMARxSet->Status & ETH_DMARxDesc_LS) != (u32)RESET) &&
+        ((pDMARxSet->Status & ETH_DMARxDesc_FS) != (u32)RESET))
+        {
+            e2u_load_ptr = E2U_Trance_Manage.LoadPtr;
+            E2U_PackAdr[ e2u_load_ptr ]   = pDMARxSet->Buffer1Addr;
+            E2U_PackLen[ e2u_load_ptr ]   = ((pDMARxSet->Status & ETH_DMARxDesc_FL) >> ETH_DMARxDesc_FrameLengthShift) - 4;
+            DMARxDealTabs[ e2u_load_ptr ] = pDMARxSet;
+            E2U_Trance_Manage.LoadPtr++;
+            if( E2U_Trance_Manage.LoadPtr >= DEF_E2U_MAXBLOCKS )
+            {
+                E2U_Trance_Manage.LoadPtr = 0;
+            }
+            E2U_Trance_Manage.RemainPack++;
+            E2U_PackCnounter ++;
+            if( E2U_Trance_Manage.RemainPack >= (DEF_E2U_MAXBLOCKS - DEF_E2U_REMINE) )
+            {
+                /* Throw away the oldest packages */
+                E2U_Trance_Manage.RemainPack = DEF_E2U_MAXBLOCKS - DEF_E2U_REMINE;
+                /* Send a Flow-Control Frame */
+                ETH_InitiatePauseControlFrame( );
+            }
+        }
+        else
+        {
+            /* Return ERROR */
+            printf("Error:recv error frame,status 0x%08x.\n",pDMARxSet->Status);
+            pDMARxSet->Status |= ETH_DMARxDesc_OWN;
+        }
+        pDMARxSet = (ETH_DMADESCTypeDef*) (pDMARxSet->Buffer2NextDescAddr);
+    }
+    else
+    {
+        /* unusual status, unexpected error */
+    }
+}
+
+/*********************************************************************
  * @fn      ETH2USB_Trance
  *
- * @brief   eth to usb trance
+ * @brief   eth to usb transfer
  *
  * @return  none
  */
@@ -259,6 +354,7 @@ void ETH2USB_Trance( void )
     uint32_t e2u_deal_ptr;
     static uint8_t upload_lock = 0;
     static uint8_t upload_check = 0;
+
     /* eth to usb */
     if( E2U_Trance_Manage.RemainPack )
     {
@@ -317,19 +413,20 @@ void ETH2USB_Trance( void )
 }
 
 /*********************************************************************
- * @fn      TIM2_Init
+ * @fn      Timer_Init
  *
- * @brief   Initializes TIM2.
+ * @brief   Initializes Timer, we use tim2 in this example.
  *
  * @return  none
  */
-void TIM2_Init(void)
+void Timer_Init(void)
 {
     TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure = { 0 };
 
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-    TIM_TimeBaseStructure.TIM_Period = SystemCoreClock / 10000 - 1;
-    TIM_TimeBaseStructure.TIM_Prescaler = (2000 - 1);    /* 100ms */
+
+    TIM_TimeBaseStructure.TIM_Period = SystemCoreClock / 1000000;
+    TIM_TimeBaseStructure.TIM_Prescaler = WCHNETTIMERPERIOD * 1000 - 1;
     TIM_TimeBaseStructure.TIM_ClockDivision = 0;
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
     TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
@@ -345,28 +442,6 @@ void TIM2_Init(void)
     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
     TIM_Cmd(TIM2, ENABLE);
     NVIC_EnableIRQ(TIM2_IRQn);
-
-    RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOD, ENABLE);
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
 }
 
 /*********************************************************************
@@ -379,7 +454,8 @@ void TIM2_Init(void)
 void ECM_Load_Status( void )
 {
     uint8_t  usbret;
-    uint16_t phy_stat;
+    // uint16_t phy_stat;
+    static uint8_t last_sat = 0;
     static uint16_t Loacl_Timer = 0;
     static uint8_t  loadflag = 0;
 
@@ -388,25 +464,14 @@ void ECM_Load_Status( void )
     if( Loacl_Timer == DEF_PHY_QUERY_TIMEOUT )
     {
         Loacl_Timer = 0;
-#if PHY_MODE == USE_10M_BASE
-        phy_stat = ETH_ReadPHYRegister( PHY_ADDRESS, PHY_BSR );
-#elif PHY_MODE == USE_MAC_RGMII
-        ETH_WritePHYRegister( PHY_ADDRESS, 0x1F, 0x0a43 );
-        /*In some cases the status is not updated in time,
-         * so read this register twice to get the correct status value.*/
-        ETH_ReadPHYRegister( PHY_ADDRESS, 0x1A);
-        phy_stat = ETH_ReadPHYRegister( PHY_ADDRESS, 0x1A );
-#else
-        phy_stat = ETH_ReadPHYRegister( PHY_ADDRESS, PHY_BSR );
-#endif
-        if( phy_stat != LastPhyStatus )
-        {
-            LastPhyStatus = phy_stat;
-            ETH_PHYLink( );
 
+        if( last_sat != LinkSta )
+        {
+            last_sat = LinkSta;
             /* ETH Status Update */
-            if( ETH_NETWork_Status & DEF_NETSTAT_LINK_RDY )
+            if( LinkSta )
             {
+                ETH_NETWork_Status |= DEF_NETSTAT_LINK_RDY;
                 ETH_NETWork_Status &= ~(DEF_NETSTAT_100MBITS | DEF_NETSTAT_1000MBITS);
                 if( ETH->MACCR & ETH_Speed_100M )
                 {
@@ -439,8 +504,7 @@ void ECM_Load_Status( void )
             }
             else
             {
-                ETH_NETWork_Status &= ~(DEF_NETSTAT_100MBITS | DEF_NETSTAT_1000MBITS);
-                ETH_NETWork_Status &= ~DEF_NETSTAT_FULLDUPLEX;
+                ETH_NETWork_Status = 0;
             }
 
             if( ETH_NETWork_Status & DEF_NETSTAT_LINK_RDY )
@@ -469,11 +533,15 @@ void ECM_Load_Status( void )
                 ECM_Link_Status->wvalue = DEF_ECM_NETWORK_DISCONN;
             }
         }
+
         if( loadflag == 0 )
         {
             /* Load Link Status */
             ECM_NetWork_Connection[ 0 ] = 0xA1;
             ECM_NetWork_Connection[ 4 ] = 0x02;
+            ECM_NetWork_Connection[ 5 ] = 0x00;
+            ECM_NetWork_Connection[ 6 ] = 0x00;
+            ECM_NetWork_Connection[ 7 ] = 0x00;
             usbret = USBHS_EP1_UpLoad( 8, (uint32_t)(uint8_t *)ECM_NetWork_Connection );
             if( usbret == 0 )
             {
@@ -530,9 +598,9 @@ void ETH_DriverInit( uint8_t *addr )
     /* Ring buffer init */
     RB_Init( );
     /* Used for Time Base */
-    TIM2_Init( );
+    Timer_Init( );
     ETH_Init( addr );
-    /* Enable flowConlrol */
+    /* Enable flowControl */
     /* PT = 240(10 full eth pack); PLT = 01(28*PT) */
     ETH->MACFCR = 0;
     ETH->MACFCR |= (0xF0<<16);/* 240(64bits time) 10 full eth pack time */
@@ -566,43 +634,42 @@ void ETH_DriverInit( uint8_t *addr )
  */
 void ETH_PhyAbility_Set( void )
 {
-#if( PHY_MODE != USE_10M_BASE )
-    uint16_t RegValue;
-    /* Limit Phy Speed If Necessary */
     if( USBHS_DevSpeed == USBHS_SPEED_FULL )
     {
-        /* Read ADAR Register */
-        RegValue = ETH_ReadPHYRegister( PHY_ADDRESS, PHY_ANAR );
-        RegValue |= (ANAR_10BASE_T | ANAR_10BASE_T_FD);
-        RegValue &= ~(ANAR_100BASE_TX_FD | ANAR_100BASE_TX);
-        /* Disable ANAR_100BASE_TX_FD&ANAR_100BASE_TX */
-        ETH_WritePHYRegister( PHY_ADDRESS, PHY_ANAR, RegValue );
-#if( PHY_MODE == USE_MAC_RGMII )
-        /* RTL8211FS 0x09 : GBCR (1000Base-T Control Register) */
-        RegValue = ETH_ReadPHYRegister( PHY_ADDRESS, 0x09 );
-        RegValue &= ~(1<<9);/* Bit9 : 1000Base-T Full duplex not advertised */
-        ETH_WritePHYRegister( PHY_ADDRESS, 0x09, RegValue );
-#endif
-        printf( "USB Full-Speed\r\n" );
-        printf( "Local Phy Ability: 10M, Full Duplex\r\n" );
+        USBETH_Limit_Spd( 1 );
     }
     else
     {
-        /* Read ADAR Register */
-        RegValue = ETH_ReadPHYRegister( PHY_ADDRESS, PHY_ANAR );
-        RegValue |= (ANAR_10BASE_T | ANAR_10BASE_T_FD);
-        RegValue |= (ANAR_100BASE_TX | ANAR_100BASE_TX_FD);
-        /* Enable ANAR_100BASE_TX_FD&ANAR_100BASE_TX */
-        ETH_WritePHYRegister( PHY_ADDRESS, PHY_ANAR, RegValue );
-        printf( "USB High-Speed\r\n" );
-        printf( "LocalPhy Ability: 100M, Full Duplex\r\n" );
-#if( PHY_MODE == USE_MAC_RGMII )
-        printf( "LocalPhy Ability: 10/100/1000M, Full Duplex\r\n" );
-#else
-        printf( "LocalPhy Ability: 10/100M, Full Duplex\r\n" );
-#endif
+        USBETH_Limit_Spd( 0 );
     }
-#else
-    printf( "LocalPhy Ability: 10M(Fixed), Full Duplex\r\n" );
-#endif
 }
+
+/*********************************************************************
+ * @fn      ETH_PhyAbility_Set
+ *
+ * @brief   Set phy ability if necessary
+ *
+ * @return  none.
+ */
+ void USBETH_Main( void )
+ {
+    if( USBHS_DevEnumStatus && ( PhyInit_Flag == 0 ) )
+    {
+        printf( "Reset\r\n" );
+        /* MAC&Phy Initialize  */
+        PhyInit_Flag = 1;
+        ETH_NETWork_Status = 0;
+        ETH_DriverInit( MACAddr );
+        ETH_PhyAbility_Set( );
+    }
+    if( PhyInit_Flag )
+    {
+        USBETH_MainTask( );
+    }
+    if( LinkSta )
+    {
+        ETH2USB_DataRecv( );
+        ETH2USB_Trance( );
+        USB2ETH_Trance( );
+    }
+ }

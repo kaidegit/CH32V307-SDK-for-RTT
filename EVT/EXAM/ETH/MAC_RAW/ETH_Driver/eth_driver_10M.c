@@ -41,7 +41,6 @@ uint32_t volatile phyLinkTime;
 
 /* PHY receive processing */
 uint8_t ReInitMACFlag = 0;
-uint8_t DuplexMode = 0;
 uint8_t PhyPolarityDetect = 0;
 uint32_t LinkSuccTime = 0;
 
@@ -364,11 +363,16 @@ void WCHNET_MainTask(void)
  */
 void ETH_SetClock(void)
 {
+    uint16_t timeout = 1000;
     RCC_PLL3Cmd(DISABLE);
     RCC_PREDIV2Config(RCC_PREDIV2_Div2);                             /* HSE = 8M */
     RCC_PLL3Config(RCC_PLL3Mul_15);                                  /* 4M*15 = 60MHz */
     RCC_PLL3Cmd(ENABLE);
-    while(RESET == RCC_GetFlagStatus(RCC_FLAG_PLL3RDY));
+    do{
+        Delay_Us(10);
+        if( !--timeout )  break;
+    }while(RESET == RCC_GetFlagStatus(RCC_FLAG_PLL3RDY));  //Wait for counters reset to complete
+    if (timeout == 0) printf(" Failed to set PLL3 clock\r\n");
 }
 
 /*********************************************************************
@@ -382,7 +386,8 @@ void ETH_SetClock(void)
  */
 void ETH_LinkUpCfg(uint16_t regval)
 {
-    printf("Link up\r\n");
+    uint16_t timeout = 1000;
+	printf("Link up\r\n");
     LinkSta = 1;
     ETH->MACCR &= ~(ETH_Speed_100M|ETH_Speed_1000M);
     phyStatus = PHY_Linked_Status;
@@ -391,7 +396,11 @@ void ETH_LinkUpCfg(uint16_t regval)
     ETH->MACFFR |= (ETH_ReceiveAll_Enable | ETH_PromiscuousMode_Enable);
 
     ETH->MMCCR |= ETH_MMCCR_CR;             //Counters Reset
-    while(ETH->MMCCR & ETH_MMCCR_CR);       //Wait for counters reset to complete
+    do{
+        Delay_Us(10);
+        if( !--timeout )  break;
+    }while(ETH->MMCCR & ETH_MMCCR_CR);  //Wait for counters reset to complete
+    if (timeout == 0) printf(" Failed to reset counters\r\n");
     PhyPolarityDetect = 1;
     LinkSuccTime = LocalTime;
     ETH_Start( );
@@ -499,7 +508,6 @@ void ETH_PHYLink( void )
             }
         }
     }
-    DuplexMode = (ETH->MACCR >> 11) & 0x01;  /* Record duplex mode*/
 }
 
 /*********************************************************************
@@ -513,106 +521,37 @@ void ETH_PHYLink( void )
  */
 void ReInitMACReg(void)
 {
-    ETH_InitTypeDef ETH_InitStructure;
     uint16_t timeout = 10000;
     uint16_t RegVal;
-    uint32_t tmpreg = 0;
+    uint32_t maccr, macmiiar, macffr, machthr, machtlr;
+    uint32_t macfcr, macvlantr, dmaomr;
 
-    /* Wait for sending data to complete */
-    while((ETH->DMASR & (7 << 20)) != ETH_DMA_TransmitProcess_Suspended);
+    /* Wait for sending data to complete, give up when the timeout is reached */
+    do{
+        Delay_Us(10);
+        if( !--timeout )  break;
+    }while((ETH->DMASR & (7 << 20)) != ETH_DMA_TransmitProcess_Suspended);
 
     PHY_TR_REVERSE();
+
+    /* Record the register value  */
+    macmiiar = ETH->MACMIIAR;
+    maccr = ETH->MACCR;
+    macffr = ETH->MACFFR;
+    machthr = ETH->MACHTHR;
+    machtlr = ETH->MACHTLR;
+    macfcr = ETH->MACFCR;
+    macvlantr = ETH->MACVLANTR;
+    dmaomr = ETH->DMAOMR;
 
     /* Software reset */
     ETH_SoftwareReset();
     /* Wait for software reset */
+    timeout = 10000;
     do{
         Delay_Us(10);
         if( !--timeout )  break;
     }while(ETH->DMABMR & ETH_DMABMR_SR);
-
-    /* ETHERNET Configuration */
-    /* Call ETH_StructInit if you don't like to configure all ETH_InitStructure parameter */
-    ETH_StructInit(&ETH_InitStructure);
-    /* Fill ETH_InitStructure parameters */
-    /*------------------------   MAC   -----------------------------------*/
-    ETH_InitStructure.ETH_Mode = ETH_Mode_FullDuplex;
-    ETH_InitStructure.ETH_Speed = ETH_Speed_10M;
-    ETH_InitStructure.ETH_AutoNegotiation = ETH_AutoNegotiation_Enable;
-    ETH_InitStructure.ETH_LoopbackMode = ETH_LoopbackMode_Disable;
-    ETH_InitStructure.ETH_RetryTransmission = ETH_RetryTransmission_Disable;
-    ETH_InitStructure.ETH_AutomaticPadCRCStrip = ETH_AutomaticPadCRCStrip_Disable;
-    /* Filter function configuration */
-    ETH_InitStructure.ETH_ReceiveAll = ETH_ReceiveAll_Disable;
-    ETH_InitStructure.ETH_PromiscuousMode = ETH_PromiscuousMode_Disable;
-    ETH_InitStructure.ETH_BroadcastFramesReception = ETH_BroadcastFramesReception_Enable;
-    ETH_InitStructure.ETH_MulticastFramesFilter = ETH_MulticastFramesFilter_Perfect;
-    ETH_InitStructure.ETH_UnicastFramesFilter = ETH_UnicastFramesFilter_Perfect;
-    /*------------------------   DMA   -----------------------------------*/
-    /* When we use the Checksum offload feature, we need to enable the Store and Forward mode:
-    the store and forward guarantee that a whole frame is stored in the FIFO, so the MAC can insert/verify the checksum,
-    if the checksum is OK the DMA can handle the frame otherwise the frame is dropped */
-    ETH_InitStructure.ETH_DropTCPIPChecksumErrorFrame = ETH_DropTCPIPChecksumErrorFrame_Enable;
-    ETH_InitStructure.ETH_TransmitStoreForward = ETH_TransmitStoreForward_Enable;
-    ETH_InitStructure.ETH_ForwardErrorFrames = ETH_ForwardErrorFrames_Enable;
-    ETH_InitStructure.ETH_ForwardUndersizedGoodFrames = ETH_ForwardUndersizedGoodFrames_Enable;
-    /* Configure Ethernet */
-    /*---------------------- Physical layer configuration -------------------*/
-    /* Set the SMI interface clock, set as the main frequency divided by 42  */
-    tmpreg = ETH->MACMIIAR;
-    tmpreg &= MACMIIAR_CR_MASK;
-    tmpreg |= (uint32_t)ETH_MACMIIAR_CR_Div42;
-    ETH->MACMIIAR = (uint32_t)tmpreg;
-
-    /*------------------------ MAC register configuration  ----------------------- --------------------*/
-    tmpreg = ETH->MACCR;
-    tmpreg &= MACCR_CLEAR_MASK;
-    tmpreg |= (uint32_t)(ETH_InitStructure.ETH_Watchdog |
-                  ETH_InitStructure.ETH_Jabber |
-                  ETH_InitStructure.ETH_InterFrameGap |
-                  ETH_InitStructure.ETH_ChecksumOffload |
-                  ETH_InitStructure.ETH_AutomaticPadCRCStrip |
-                  ETH_InitStructure.ETH_DeferralCheck |
-                  (1 << 20));
-    /* Write MAC Control Register */
-    ETH->MACCR = (uint32_t)tmpreg;
-    ETH->MACCR |= ETH_Internal_Pull_Up_Res_Enable;  /*Turn on the internal pull-up resistor*/
-    ETH->MACFFR = (uint32_t)(ETH_InitStructure.ETH_ReceiveAll |
-                          ETH_InitStructure.ETH_SourceAddrFilter |
-                          ETH_InitStructure.ETH_PassControlFrames |
-                          ETH_InitStructure.ETH_BroadcastFramesReception |
-                          ETH_InitStructure.ETH_DestinationAddrFilter |
-                          ETH_InitStructure.ETH_PromiscuousMode |
-                          ETH_InitStructure.ETH_MulticastFramesFilter |
-                          ETH_InitStructure.ETH_UnicastFramesFilter);
-    /*--------------- ETHERNET MACHTHR and MACHTLR Configuration ---------------*/
-    /* Write to ETHERNET MACHTHR */
-    ETH->MACHTHR = (uint32_t)ETH_InitStructure.ETH_HashTableHigh;
-    /* Write to ETHERNET MACHTLR */
-    ETH->MACHTLR = (uint32_t)ETH_InitStructure.ETH_HashTableLow;
-    /*----------------------- ETHERNET MACFCR Configuration --------------------*/
-    /* Get the ETHERNET MACFCR value */
-    tmpreg = ETH->MACFCR;
-    /* Clear xx bits */
-    tmpreg &= MACFCR_CLEAR_MASK;
-    tmpreg |= (uint32_t)((ETH_InitStructure.ETH_PauseTime << 16) |
-                     ETH_InitStructure.ETH_UnicastPauseFrameDetect |
-                     ETH_InitStructure.ETH_ReceiveFlowControl |
-                     ETH_InitStructure.ETH_TransmitFlowControl);
-    ETH->MACFCR = (uint32_t)tmpreg;
-
-    ETH->MACVLANTR = (uint32_t)(ETH_InitStructure.ETH_VLANTagComparison |
-                               ETH_InitStructure.ETH_VLANTagIdentifier);
-
-    tmpreg = ETH->DMAOMR;
-    tmpreg &= DMAOMR_CLEAR_MASK;
-    tmpreg |= (uint32_t)(ETH_InitStructure.ETH_DropTCPIPChecksumErrorFrame |
-                    ETH_InitStructure.ETH_FlushReceivedFrame |
-                    ETH_InitStructure.ETH_TransmitStoreForward |
-                    ETH_InitStructure.ETH_ForwardErrorFrames |
-                    ETH_InitStructure.ETH_ForwardUndersizedGoodFrames);
-    ETH->DMAOMR = (uint32_t)tmpreg;
-
 
     /* Configure MAC address */
     ETH->MACA0HR = (uint32_t)((MACAddr[5]<<8) | MACAddr[4]);
@@ -637,13 +576,14 @@ void ReInitMACReg(void)
     pDMARxSet = DMARxDscrTab;
     pDMATxSet = DMATxDscrTab;
 
-    ETH->MACCR &= ~ETH_Mode_FullDuplex;     //configure working mode based on the link result
-    if(DuplexMode)
-    {
-        ETH->MACCR |= ETH_Mode_FullDuplex;
-    }
-
-    ETH->MACCR &= ~(ETH_Speed_100M|ETH_Speed_1000M);
+    ETH->MACMIIAR = macmiiar;
+    ETH->MACCR = maccr;
+    ETH->MACFFR = macffr;
+    ETH->MACHTHR = machthr;
+    ETH->MACHTLR = machtlr;
+    ETH->MACFCR = macfcr;
+    ETH->MACVLANTR = macvlantr;
+    ETH->DMAOMR = dmaomr;
 
     ETH_Start( );
 
@@ -670,28 +610,19 @@ void ReInitMACReg(void)
  */
 uint32_t ETH_RegInit( ETH_InitTypeDef* ETH_InitStruct, uint16_t PHYAddress )
 {
-    uint32_t tmpreg = 0;
-
-    /*---------------------- Physical layer configuration -------------------*/
     /* Set the SMI interface clock, set as the main frequency divided by 42  */
-    tmpreg = ETH->MACMIIAR;
-    tmpreg &= MACMIIAR_CR_MASK;
-    tmpreg |= (uint32_t)ETH_MACMIIAR_CR_Div42;
-    ETH->MACMIIAR = (uint32_t)tmpreg;
+    ETH->MACMIIAR = (uint32_t)ETH_MACMIIAR_CR_Div42;
 
-    /*------------------------ MAC register configuration  ----------------------- --------------------*/
-    tmpreg = ETH->MACCR;
-    tmpreg &= MACCR_CLEAR_MASK;
-    tmpreg |= (uint32_t)(ETH_InitStruct->ETH_Watchdog |
+    /*------------------------ MAC register configuration  -------------------------------------------*/
+    ETH->MACCR = (uint32_t)(ETH_InitStruct->ETH_Watchdog |
                   ETH_InitStruct->ETH_Jabber |
                   ETH_InitStruct->ETH_InterFrameGap |
                   ETH_InitStruct->ETH_ChecksumOffload |
                   ETH_InitStruct->ETH_AutomaticPadCRCStrip |
-                  ETH_InitStruct->ETH_DeferralCheck |
-                  (1 << 20));
-    /* Write MAC Control Register */
-    ETH->MACCR = (uint32_t)tmpreg;
-    ETH->MACCR |= ETH_Internal_Pull_Up_Res_Enable;  /*Turn on the internal pull-up resistor*/
+                  ETH_InitStruct->ETH_LoopbackMode |
+                  ETH_Internal_Pull_Up_Res_Enable
+                  |(1 << 9));
+
     ETH->MACFFR = (uint32_t)(ETH_InitStruct->ETH_ReceiveAll |
                           ETH_InitStruct->ETH_SourceAddrFilter |
                           ETH_InitStruct->ETH_PassControlFrames |
@@ -700,33 +631,22 @@ uint32_t ETH_RegInit( ETH_InitTypeDef* ETH_InitStruct, uint16_t PHYAddress )
                           ETH_InitStruct->ETH_PromiscuousMode |
                           ETH_InitStruct->ETH_MulticastFramesFilter |
                           ETH_InitStruct->ETH_UnicastFramesFilter);
-    /*--------------- ETHERNET MACHTHR and MACHTLR Configuration ---------------*/
-    /* Write to ETHERNET MACHTHR */
+
     ETH->MACHTHR = (uint32_t)ETH_InitStruct->ETH_HashTableHigh;
-    /* Write to ETHERNET MACHTLR */
     ETH->MACHTLR = (uint32_t)ETH_InitStruct->ETH_HashTableLow;
-    /*----------------------- ETHERNET MACFCR Configuration --------------------*/
-    /* Get the ETHERNET MACFCR value */
-    tmpreg = ETH->MACFCR;
-    /* Clear xx bits */
-    tmpreg &= MACFCR_CLEAR_MASK;
-    tmpreg |= (uint32_t)((ETH_InitStruct->ETH_PauseTime << 16) |
+
+    ETH->MACFCR = (uint32_t)((ETH_InitStruct->ETH_PauseTime << 16) |
                      ETH_InitStruct->ETH_UnicastPauseFrameDetect |
                      ETH_InitStruct->ETH_ReceiveFlowControl |
                      ETH_InitStruct->ETH_TransmitFlowControl);
-    ETH->MACFCR = (uint32_t)tmpreg;
 
     ETH->MACVLANTR = (uint32_t)(ETH_InitStruct->ETH_VLANTagComparison |
                                ETH_InitStruct->ETH_VLANTagIdentifier);
 
-    tmpreg = ETH->DMAOMR;
-    tmpreg &= DMAOMR_CLEAR_MASK;
-    tmpreg |= (uint32_t)(ETH_InitStruct->ETH_DropTCPIPChecksumErrorFrame |
-                    ETH_InitStruct->ETH_FlushReceivedFrame |
+    ETH->DMAOMR = (uint32_t)(ETH_InitStruct->ETH_DropTCPIPChecksumErrorFrame |
                     ETH_InitStruct->ETH_TransmitStoreForward |
                     ETH_InitStruct->ETH_ForwardErrorFrames |
                     ETH_InitStruct->ETH_ForwardUndersizedGoodFrames);
-    ETH->DMAOMR = (uint32_t)tmpreg;
 
     /* Reset the physical layer */
     ETH_WritePHYRegister(PHYAddress, PHY_BCR, PHY_Reset);
@@ -770,22 +690,37 @@ void ETH_Configuration( uint8_t *macAddr )
     }while(ETH->DMABMR & ETH_DMABMR_SR);
 
     /* ETHERNET Configuration */
-    /* Call ETH_StructInit if you don't like to configure all ETH_InitStructure parameter */
-    ETH_StructInit(&ETH_InitStructure);
-    /* Fill ETH_InitStructure parameters */
     /*------------------------   MAC   -----------------------------------*/
-    ETH_InitStructure.ETH_Mode = ETH_Mode_FullDuplex;
-    ETH_InitStructure.ETH_Speed = ETH_Speed_10M;
-    ETH_InitStructure.ETH_AutoNegotiation = ETH_AutoNegotiation_Enable;
-    ETH_InitStructure.ETH_LoopbackMode = ETH_LoopbackMode_Disable;
-    ETH_InitStructure.ETH_RetryTransmission = ETH_RetryTransmission_Disable;
+    ETH_InitStructure.ETH_Watchdog = ETH_Watchdog_Enable;
+    ETH_InitStructure.ETH_Jabber = ETH_Jabber_Enable;
+    ETH_InitStructure.ETH_InterFrameGap = ETH_InterFrameGap_96Bit;
+    ETH_InitStructure.ETH_ChecksumOffload = ETH_ChecksumOffload_Disable;
     ETH_InitStructure.ETH_AutomaticPadCRCStrip = ETH_AutomaticPadCRCStrip_Disable;
+    ETH_InitStructure.ETH_LoopbackMode = ETH_LoopbackMode_Disable;
+
     /* Filter function configuration */
     ETH_InitStructure.ETH_ReceiveAll = ETH_ReceiveAll_Disable;
     ETH_InitStructure.ETH_PromiscuousMode = ETH_PromiscuousMode_Disable;
     ETH_InitStructure.ETH_BroadcastFramesReception = ETH_BroadcastFramesReception_Enable;
     ETH_InitStructure.ETH_MulticastFramesFilter = ETH_MulticastFramesFilter_Perfect;
     ETH_InitStructure.ETH_UnicastFramesFilter = ETH_UnicastFramesFilter_Perfect;
+    ETH_InitStructure.ETH_PassControlFrames = ETH_PassControlFrames_BlockAll;
+    ETH_InitStructure.ETH_DestinationAddrFilter = ETH_DestinationAddrFilter_Normal;
+    ETH_InitStructure.ETH_SourceAddrFilter = ETH_SourceAddrFilter_Disable;
+
+    ETH_InitStructure.ETH_HashTableHigh = 0x0;
+    ETH_InitStructure.ETH_HashTableLow = 0x0;
+
+    /* VLan function configuration */
+    ETH_InitStructure.ETH_VLANTagComparison = ETH_VLANTagComparison_16Bit;
+    ETH_InitStructure.ETH_VLANTagIdentifier = 0x0;
+
+    /* Flow Control function configuration */
+    ETH_InitStructure.ETH_PauseTime = 0x0;
+    ETH_InitStructure.ETH_UnicastPauseFrameDetect = ETH_UnicastPauseFrameDetect_Disable;
+    ETH_InitStructure.ETH_ReceiveFlowControl = ETH_ReceiveFlowControl_Disable;
+    ETH_InitStructure.ETH_TransmitFlowControl = ETH_TransmitFlowControl_Disable;
+
     /*------------------------   DMA   -----------------------------------*/
     /* When we use the Checksum offload feature, we need to enable the Store and Forward mode:
     the store and forward guarantee that a whole frame is stored in the FIFO, so the MAC can insert/verify the checksum,
@@ -794,6 +729,7 @@ void ETH_Configuration( uint8_t *macAddr )
     ETH_InitStructure.ETH_TransmitStoreForward = ETH_TransmitStoreForward_Enable;
     ETH_InitStructure.ETH_ForwardErrorFrames = ETH_ForwardErrorFrames_Enable;
     ETH_InitStructure.ETH_ForwardUndersizedGoodFrames = ETH_ForwardUndersizedGoodFrames_Enable;
+
     /* Configure Ethernet */
     ETH_RegInit( &ETH_InitStructure, gPHYAddress );
 

@@ -79,22 +79,27 @@ void USB_TestMode_Deal( void )
         /* Test_J */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_J;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0200 )
     {
         /* Test_K */
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_K;
+        USBHSD->CONTROL |= USBHS_UC_HOST_MODE;
     }
     else if( USBHS_SetupReqIndex == 0x0300 )
     {
         /* Test_SE0_NAK */
         USBHSD->SUSPEND &= ~TEST_MASK;
-        USBHSD->SUSPEND |= TEST_SE0;
+        USBHSD->SUSPEND |= TEST_PACKET;
+        USBHSD->DEV_AD = 0x00;
+        USBHSD->UEP0_RX_CTRL = USBHS_UEP_R_RES_NAK;
+        USBHSD->UEP0_TX_CTRL = USBHS_UEP_T_RES_NAK;
     }
     else if( USBHS_SetupReqIndex == 0x0400 )
     {
-        /* Test_Packet */
+        /* Test_Packet */ 
         USBHSD->SUSPEND &= ~TEST_MASK;
         USBHSD->SUSPEND |= TEST_PACKET;
 
@@ -692,7 +697,7 @@ void USBHS_IRQHandler( void )
                     }
                     else if ( ( USBHS_SetupReqType & USB_REQ_RECIP_MASK ) == USB_REQ_RECIP_ENDP )
                     {
-                        /* Set End-point Feature */
+                        /* Clear End-point Feature */
                         if( (uint8_t)(USBHS_SetupReqValue&0xFF) == USB_REQ_FEAT_ENDP_HALT )
                         {
                             /* Clear End-point Feature */
@@ -704,7 +709,7 @@ void USBHS_IRQHandler( void )
                                     break;
 
                                 case (DEF_UEP1 | DEF_UEP_IN):
-                                    /* Set End-point 2 IN NAK */
+                                    /* Set End-point 1 IN NAK */
                                     USBHSD->UEP1_TX_CTRL = USBHS_UEP_T_RES_NAK;
                                     break;
 
@@ -821,6 +826,10 @@ void USBHS_IRQHandler( void )
                                     errflag = 0xFF;
                                     break;
                             }
+                        }
+                        else
+                        {
+                            errflag = 0xFF;
                         }
                     }
                     break;

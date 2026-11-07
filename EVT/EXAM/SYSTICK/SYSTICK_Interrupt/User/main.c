@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : main.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.1
+* Date               : 2026/10/15
 * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -32,7 +32,7 @@ void SysTick_Handler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
  *
  * @return  none
  */
-void SYSTICK_Init_Config(u_int64_t ticks)
+void SYSTICK_Init_Config(uint64_t ticks)
 {
     SysTick->SR &= ~(1 << 0);//clear State flag
     SysTick->CMP = ticks;
@@ -74,9 +74,10 @@ void SysTick_Handler(void)
     if(SysTick->SR == 1)
     {
         SysTick->SR = 0;//clear State flag
-        printf("welcome to WCH\r\n");
         counter++;
+        #if 0
         printf("Counter:%d\r\n",counter);
+        #endif
     }
 }
 

@@ -1,8 +1,8 @@
 /********************************** (C) COPYRIGHT *******************************
 * File Name          : main.c
 * Author             : WCH
-* Version            : V1.0.0
-* Date               : 2021/06/06
+* Version            : V1.0.2
+* Date               : 2026/10/16
 * Description        : Main program body.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -25,7 +25,7 @@
 
 
 /* Global Variable */
-u16 dacbuff16bit[8]={0x123,0x234,0x345,0x456,0x567,0x678,0x789,0x89a};
+static const u16 dacbuff16bit[8]={0x123,0x234,0x345,0x456,0x567,0x678,0x789,0x89a};
 
 
 /*********************************************************************
@@ -45,9 +45,7 @@ void Dac_Init(void)
 
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
  	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
- 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
  	GPIO_Init(GPIOA, &GPIO_InitStructure);
-	GPIO_SetBits(GPIOA,GPIO_Pin_4);
 
 	DAC_InitType.DAC_Trigger=DAC_Trigger_T8_TRGO;
 	DAC_InitType.DAC_WaveGeneration=DAC_WaveGeneration_None;
@@ -91,7 +89,7 @@ void DAC1_DMA_Init(void)
 /*********************************************************************
  * @fn      TIM8_Init
  *
- * @brief   Initializes TIM3 collection.
+ * @brief   Initializes TIM8 collection.
  *
  * @param   arr - TIM_Period
  *          psc - TIM_Prescaler

@@ -50,21 +50,36 @@
 #define DEF_NETSTAT_FULLDUPLEX          0x01 /* Link Duplex full-duplex */
 #define DEF_NETSTAT_HALFDUPLEX          0x00 /* Link Duplex half-duplex */
 
-#ifndef QUERY_STAT_FLAG
-#define QUERY_STAT_FLAG  ((LastQueryPhyTime == (LocalTime / 1000)) ? 0 : 1)
-#endif
+/******************************************************************************/
+/* Phy Operation Definition */
+#define DEF_PHY_QUERY_TIMEOUT           20   /* Query Phy Status every 200ms, in 10ms */
+
+/******************************************************************************/
+/* pcak fliter Definitions */
+#define DEF_PACK_PROMISCUOUS            0x01
+#define DEF_PACK_ALL_MULTICAST          0x02
+#define DEF_PACK_DIRECTED               0x04
+#define DEF_PACK_BROADCASRT             0x08
+#define DEF_PACK_MULTICAST              0x10
+
+/*********************************************************************
+ * MAC queue configuration
+ */
+#define DEF_ETH_RX_USBPACK            3160
+#define DEF_ETH_TX_USBPACK            1580
+#define DEF_ETH_USBPACK               1536
 
 /* Ringbuffer define  */
-#define DEF_U2E_REMINE                 (2)/* usb to eth 停止传输的剩余队列个数 */
-#define DEF_U2E_RESTART                (2)/* usb to eth 重新开始传输的队列个数 */
-#define DEF_U2E_MAXBLOCKS              (ETH_TXBUFNB)/* usb to eth 最大队列深度 */
-#define DEF_U2E_PACKHEADOFFSET         (4)/* usb to eth 头部包偏移，单位uint8_t */
-#define DEF_U2E_PACKTAILOFFSET         (1532)/* usb to eth 尾部偏移，单位uint8_t */
-#define DEF_E2U_REMINE                 (8)/* eth to usb 停止传输的剩余队列个数 */
-#define DEF_E2U_RESTART                (2)/* eth to usb 重新开始传输的队列个数 */
-#define DEF_E2U_MAXBLOCKS              (ETH_RXBUFNB)/* eth to usb 最大队列深度 */
-#define DEF_E2U_PACKLOADOFFSET         (4)/* usb to eth 头部包偏移，单位uint8_t */
-#define DEF_U2E_PACKTAILOFFSET         (1532)/* usb to eth 尾部偏移，单位uint8_t */
+#define DEF_U2E_REMINE                 (2)/* usb to eth Number of queue entries remaining when the transfer stops */
+#define DEF_U2E_RESTART                (2)/* usb to eth Number of queue entries when the transfer restarts */
+#define DEF_U2E_MAXBLOCKS              (ETH_TXBUFNB)/* usb to eth Maximum queue depth */
+#define DEF_U2E_PACKHEADOFFSET         (4)/* usb to eth Header packet offset, in uint8_t units */
+#define DEF_U2E_PACKTAILOFFSET         (1532)/* usb to eth Tail offset, in uint8_t units */
+#define DEF_E2U_REMINE                 (8)/* eth to usb Number of queue entries remaining when the transfer stops */
+#define DEF_E2U_RESTART                (2)/* eth to usb Number of queue entries when the transfer restarts */
+#define DEF_E2U_MAXBLOCKS              (ETH_RXBUFNB)/* eth to usb Maximum queue depth */
+#define DEF_E2U_PACKLOADOFFSET         (4)/* usb to eth Header packet offset, in uint8_t units */
+#define DEF_U2E_PACKTAILOFFSET         (1532)/* usb to eth Tail offset, in uint8_t units */
 
 /* Ring Buffer typedef */
 typedef struct __attribute__((packed)) _RING_BUFF_COMM
@@ -87,12 +102,13 @@ extern __attribute__((__aligned__(4))) ETH_DMADESCTypeDef DMATxDscrTab[ ];      
 extern __attribute__((__aligned__(4))) uint8_t  MACRxBuf[ ];                     /* MAC receive buffer, 4-byte aligned */
 extern __attribute__((__aligned__(4))) uint8_t  MACTxBuf[ ];                     /* MAC send buffer, 4-byte aligned */
 
-extern uint8_t MAC_Address[ 6 ];
 extern rndis_state_t rndis_state;
 extern uint8_t encapsulated_buffer[ ];
+extern const uint32_t RNDIS_Enc_Buf_Size;
 extern uint8_t RNDIS_RX_Buffer[ ];
 extern uint8_t RNDIS_TX_Buffer[ ];
 extern uint8_t RNDIS_EP1_Buffer[ ];
+extern uint8_t MACAddr[ 6 ];
 
 extern volatile uint8_t  RNDIS_Spd_ChangeReset;
 extern volatile uint8_t  USBHS_UsbRxFlag;
@@ -107,13 +123,20 @@ extern uint8_t  PhyInit_Flag;
 extern void USB2ETH_Trance( void );
 extern void ETH2USB_Trance( void );
 extern void RNDIS_Load_Status( void );
+extern uint8_t ETH2USB_DataSend(uint16_t len, uint32_t *pBuff );
 extern void RNDIS_MSG_Recv( void );
 extern void ETH_GetMacAddr( uint8_t *p );
 extern void ETH_DriverInit( uint8_t *addr );
 extern void ETH_PhyAbility_Set( void );
+extern void USBETH_Main( void );
+extern void MAC_Filter_Set( uint8_t pac_filter );
 
 /* extern from eth_driver.c */
+extern volatile uint8_t LinkSta;
 extern uint32_t LastQueryPhyTime;
+extern ETH_DMADESCTypeDef *pDMARxSet;
+extern ETH_DMADESCTypeDef *pDMATxSet;
 extern uint32_t ETH_TxPktChainMode( uint16_t len, uint32_t *pBuff );
+extern void USBETH_MainTask(void);
 
 #endif
