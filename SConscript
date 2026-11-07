@@ -1,10 +1,13 @@
 import rtconfig
 from building import *
 
+# get current directory
+cwd = GetCurrentDir()
 
 # The set of source files associated with this SConscript file.
 
 sdk_path = os.path.join("EVT", "EXAM", "SRC")
+patch_path = os.path.join(cwd, "rtt-patch")
 
 src = Glob(os.path.join(sdk_path, "Core", "*.c")) + \
     Glob(os.path.join(sdk_path, "Peripheral", "src", "*.c"))
