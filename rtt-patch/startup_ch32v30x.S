@@ -6,6 +6,8 @@
 * Description        : CH32V30x vector table for eclipse toolchain.
 *******************************************************************************/
 
+#include "rtconfig.h"
+
 	.section	.init,"ax",@progbits
 	.global	_start
 	.align	1
@@ -368,9 +370,13 @@ handle_reset:
     li t0, 0x1f
     csrw 0xbc0, t0
 
-    /* Enable hardware stack */
-    li t0,0x1
-	csrw 0x804, t0
+    /* Configure the hardware stack before enabling interrupts. */
+#ifdef WCH_USING_FAST_IRQ
+    li t0, 0x1
+#else
+    li t0, 0x0
+#endif
+    csrw 0x804, t0
 
 
     /* Enable floating point and interrupt */
